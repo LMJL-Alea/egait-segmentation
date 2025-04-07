@@ -10,6 +10,9 @@ on:
     branches: ["main","master"]
 
 jobs:
+  call-workflow:
+    permissions:
+      id-token: write
   call_env_workflow:
     uses: computorg/workflows/.github/workflows/global-env.yml@main
   call_quartopublish_workflow:
