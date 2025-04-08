@@ -1,5 +1,7 @@
 project:
   title: "article_segmentation"
+  render:
+    - article_segmentation.qmd
 
 
 
