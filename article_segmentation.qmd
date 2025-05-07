@@ -51,13 +51,17 @@ header-includes:
 
 Study of the human gait has been shown to be important in various health applications, such as study of general health in elderly populations [@beauchet2016poor]. Wearable sensors are increasingly used for gait analysis as they are smaller, cheaper and more convenient than other methods such as motion capture systems or mats containing pressure sensors.
 
-A walking cycle is defined as a stride, which is composed of two steps. More formally, a stride is the set of movements performed between two consecutive contacts of the heel of the same foot with the ground. The goal of our method is to segment the gait as cycles to extract strides. This allows further study of the gait, like spatio-temporal parameters computation.
+A walking cycle is defined as a stride, which is composed of two steps. More formally, a stride is the set of movements performed between two consecutive contacts of the heel of the same foot with the ground. The goal of our method is to detect different events happening during gait cycles when a subject is walking. This work can be used to segment the gait as cycles to extract strides and it allows further study of the gait such as spatio-temporal parameters computation.
 
-More precisely, a stride is divided in two phases: the stance phase and the swing phase. The stance phase lasts generally 60% of the entire stride. Different events are happening during a stride (see @fig-walking-cycle) and the focus in this work is the Heel-Strike event which will be the segmentation marker.
+More precisely, the detected events are the moments where a foot touches or leaves the ground. They are called Heel-Strike and Toe-off respectively and they can be used to segment the stride in phases. The stance phase corresponds to the moments when the foot touches the ground and can be found between the events Heel-Strike and Toe-off (see @fig-walking-cycle). This phase lasts generally 60% of the entire stride and is followed by the swing phase when the foot is not in contact with the ground.
+
+With these four markers identified at each cycle, the gait can be analysed with parameters such as stride length and stance phase percentage variability or symmetry between feet.
+
 
 ![Events and phases of a typical gait cycle. [^jacquelin-perry]](images/walking-cycles.png){#fig-walking-cycle width=400}
 
 [^jacquelin-perry]: Figure annotated from Jaquelin Perry's one on [Wikipedia](https://commons.wikimedia.org/wiki/File:GaitCycle_by_JaquelinPerry.jpg).
+
 
 ### Unit quaternions
 
@@ -135,7 +139,7 @@ A wearable sensor was used to record the hip rotation. It contains an accelerome
 ![Sensor positionned on the right hip.](images/sensor-position.png){#fig-sensor-position width=150}
 
 
-Furthemore, during acquisitions, subjects were walking on the GAITRite© mat, the gold standard in gait analysis [@Menz2004]. It implies that subject were walking approximately 9 meters. This device gives the times where the subjects touch the ground at each step thanks to pressure sensors in the mat, meaning that these times can be used to know when the Heel-Strike event actually happened. This data is then used to train the model. To use the two devices simultaneously, they were started at the same time by the same person, allowing a good synchronization between devices.
+Furthemore, during acquisitions, subjects were walking on the GAITRite© mat, the gold standard in gait analysis [@Menz2004]. It implies that subject were walking approximately 9 meters. This device gives the times where the subjects touch and leave the ground at each step thanks to pressure sensors in the mat, meaning that these times can be used to know when the gait events actually happened. This data is then used to train the model. To use the two devices simultaneously, they were started at the same time by the same person, allowing a good synchronization between devices.
 
 Six subjects have been included in this study, with different walking speed (see @tbl-subjects). 
 
@@ -241,7 +245,7 @@ $$ {#eq-centring-qts}
 
 Pressure mat data
 
-: The GAITRite© mat returns directly spatio-temporal parameters such as stride duration, stride length or speed. The key parameter in our study is the Heel-Strike exact time. Since the two devices were triggered simultaneously, the same time range is used to associate the Heel-Strike event with a time on the sensor time-series. More precisely, each time of the time-series will be classified between two classes: *Heel-Strike* or *other times*. This method rises a class imbalance challenge that will be adressed later in the article.
+: The GAITRite© mat returns directly spatio-temporal parameters such as stride duration, stride length or speed. The key parameter in our study is the Heel-Strike exact time. Since the two devices were triggered simultaneously, the same time range is used to associate the gait events with a time on the sensor time-series. More precisely, each time of the time-series will be classified between five classes: *Heel-Strike* and *Toe-off* for both feet and all of the *other times*. This method rises a class imbalance challenge that will be adressed later in the article.
 
 
 ## Feature space
@@ -287,7 +291,7 @@ Walking speed
 
 On the other hand, the feature space depends on two hyper-parameters. The first one is a smoothness parameter for the time-serie curves, as derivation is used to compute some variables. The second one is a lag parameter, to keep at the time $t_p$ the informations from the time $t_{p-1}$. That parameter implies that the feature space contains $10 + 9 \times lag$ variables.
 
-Finally, the variable to be predicted contains the two possible classes *Heel-Strike* and *other times* from the GAITRite© mat output. We choose to label a number of points as *Heel-Strike* around the precise event time. This allows to take into account a some uncertainty, as the time range between two points is only 10 ms. By labelling as *Heel-Strike* seven points rather than just one, the event happens in a window of 70 ms. This strategy also reduces the imbalance between the two classes.
+Finally, the variable to be predicted contains the five possible classes from the GAITRite© mat output. We choose to label a number of points as corresponding to the event around the precise event time. This allows to take into account some uncertainty, as the time range between two points is only 10 ms. For instance, by labelling as *Heel-Strike* three points rather than just one, the event happens in a window of 30 ms. This strategy also reduces somewhat the imbalance between the class proportions.
 
 
 ## Supervised classification models
@@ -356,12 +360,47 @@ This formula gives balanced weights at the different classes to pay better atten
 
 ## Performance metrics 
 
-In the case of imbalanced class, we cannot use accucary to correctly evaluate the model. Indeed, since the model will predict almost only the majority class, the predictions in this class will be good, implying that the accuracy will be high because most of the observations will be well-classified. This does not take into account the observations in the minority class which are not predicted.
+In classification problems, the most widely used metric is accucary which is defined as the number of correct predictions divided by the total number of predictions. In the case of imbalanced classes, we cannot use accucary to correctly evaluate the model. Indeed, since the model will predict almost only the majority class, the predictions in this class will be good, implying that the accuracy will be high because most of the observations will be well-classified. This does not take into account the observations in the minority classes which are not predicted.
 
 We need to use other metrics that are adapted for this situation. An important tool is the confusion matrix which indicate the number of predictions in each class compared to the real values of the observations.
 
-*Here, either metric for binary or multiclass*
+In a binary classification, The matrix contains the values of the True Positives ($TP$), False Positives ($FP$), True Negatives ($TN$) and False Negatives ($FN$). Two of the metrics that can be calculated from this matrix are known as Sensitivity and Specificity. They are defined as follow:
 
+$$
+\text{Sensitivity} = \frac{TP}{TP+FN} 
+$${#eq-sensitivity}
+
+$$
+\text{Specificity} = \frac{TN}{TN+FP}
+$${#eq-specificity}
+
+The Sensitivity measures how well the model has found all occurences of our positive class, meaning that a low sensitivity implies a lot of missing observations in this class. The Specificity measures how well the model predicts the negative class. In a class imbalance, the Sensitivity is essential to know if the model achieved to predict correctly our minority class represented as the positive class.
+
+In a multiclass classification, we can extend these metrics to use them with a different number of positive classes. In our case, we have four classes containing less observations and having to be correctly predicted, while the other class is the majority class. 
+
+![Confusion matrix for five classes inclusing one negative one.](images/confusion-matrix.png){#fig-confusion-matrix width=300}
+
+We define a confusion matrix with multiple positive classes and one negative class (see @fig-confusion-matrix). The element $c_{i,j}$ is the number of observations from the class $i$ that has been predicted in the class $j$. Therefore, $c_{i,.}$ represents the number of observations from the class $i$, while $c_{.,j}$ represents the number of observations that the model predicted to be in the class $j$. We now define the extension of Sensibility and Specificity with these notations, that can be called Macro-Average Sensibility and Macro-Average Specificity [@mortaz2020]. The formulas are generalized for a total of $K$ classes containing one negative class.
+
+$$
+\text{MA Sensitivity} = \frac{1}{K-1} \sum_{i=1}^{K-1} \frac{c_{i,i}}{c_{i,.}}
+$${#eq-masensitivity}
+
+$$
+\text{MA Specificity} = \frac{1}{K} \sum_{i=1}^K \frac{\sum_{j \ne k \ne i} c_{j,k} + \sum_{j \ne i} c_{j,j}}{\sum_{j \ne i} c_{.,j}}
+$${#eq-maspecificity}
+
+These metrics can be used to evaluate our model to know if the classes of interest are correctly predicted.
+
+To tune a model, we need a metric that combines the informations from the previously defined MA Sensitivity and MA Specificity. The weighted Youden index [@li2013weighted] has this function, allowing the user to put a different weight on each metric. We generalize this index with the Macro-Average versions of the metrics:
+
+$$
+J_w = 2(w \times \text{MA Sensitivity} + (1-w) \times \text{MA Specificity}) -1
+$${#eq-youden}
+
+with $w \in [0,1]$ representing the weight put on the MA Sensitivity.
+
+In our case, we chose to put a weight of $0.7$ on the MA Sensitivity to take more into account this metric, to make sure not to forget observatins in the minority classes.
 
 
 ## Data splitting and Tuning strategy
